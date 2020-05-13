@@ -2,8 +2,20 @@ from bs4 import BeautifulSoup as bf
 from lxml import html  
 import requests
 import json
+from pymongo import MongoClient
 
-def test_parser(ticker):
+def history_dividend_parser(ticker):
+    print("start "+ticker)
+    url = "https://finance.yahoo.com/quote/%s.HK/history?period1=946857600&period2=1587772800&interval=1d&filter=history&frequency=1d"%(ticker)
+    response = requests.get(url, verify=False)
+    dividend_start_pos = response.text.find("\"eventsData\"")
+    dividend_end_pos = response.text.find("]}", dividend_start_pos)
+    dividend_str = response.text[dividend_start_pos:dividend_end_pos+1]
+    dividend = json.loads("{"+dividend_str+"}")
+    dividend["symbol"] = ticker + ".HK"
+    return dividend
+
+def symbol_statics_parser(ticker):
     print("start "+ticker)
     staticmap = {}
     url = "https://finance.yahoo.com/quote/%s/key-statistics?p=%s"%(ticker, ticker)
@@ -31,8 +43,7 @@ def test_parser(ticker):
     return staticmap 
     
 
-if __name__=="__main__":
-    symbol_list = ["00001",
+symbol_list = ["00001",
 "00002",
 "00003",
 "00004",
@@ -2127,11 +2138,143 @@ if __name__=="__main__":
 "09968",
 "09969",
 "09988",
-"09998"]
-symbol_dict = {}
-for s in symbol_list:
-    symbol_dict[s] = test_parser(s[1:]+".HK")
-    print(symbol_dict[s])
+"09998"] 
 
-with open("symbol.json","w") as f:
-    json.dump(symbol_dict,f)
+symbol_list1 = ["06068",
+"06069",
+"06080",
+"06083",
+"06088",
+"06090",
+"06093",
+"06098",
+"06099",
+"06100",
+"06108",
+"06110",
+"06111",
+"06113",
+"06116",
+"06117",
+"06118",
+"06119",
+"06122",
+"06123",
+"06128",
+"06133",
+"06136",
+"06138",
+"06139",
+"06158",
+"06160",
+"06161",
+"06162",
+"06163",
+"06166",
+"06168",
+"06169",
+"06178",
+"06182",
+"06183",
+"06185",
+"06186",
+"06188",
+"06189",
+"06190",
+"06193",
+"06196",
+"06198",
+"06199",
+"06805",
+"06806",
+"06808",
+"06811",
+"06816",
+"06818",
+"06819",
+"06820",
+"06822",
+"06823",
+"06826",
+"06828",
+"06829",
+"06830",
+"06833",
+"06836",
+"06837",
+"06838",
+"06839",
+"06855",
+"06858",
+"06860",
+"06862",
+"06865",
+"06866",
+"06868",
+"06869",
+"06877",
+"06878",
+"06880",
+"06881",
+"06882",
+"06885",
+"06886",
+"06888",
+"06889",
+"06890",
+"06893",
+"06896",
+"06898",
+"06899",
+"06908",
+"06918",
+"06919",
+"06928",
+"06966",
+"09900",
+"09909",
+"09911",
+"09916",
+"09918",
+"09919",
+"09922",
+"09928",
+"09929",
+"09933",
+"09936",
+"09938",
+"09966",
+"09968",
+"09969",
+"09988",
+"09998"]
+
+def historical_dividend_mongoDB():
+    for s in symbol_list:
+        dividend = history_dividend_parser(s[1:])
+        with open(s+".json", "w") as f:
+            json.dump(dividend, f)
+
+def upload_dividend_mongoDB():
+    client = MongoClient("mongodb+srv://admin_2020:admin_2020@stockhistoricaldata-brhcu.mongodb.net/test?retryWrites=true&w=majority")
+    db=client.hk_equity_hist
+
+    for s in symbol_list:
+        with open(s+".json") as f:
+            dividend = json.load(f)
+            result=db.dividendhist.insert_one(dividend)
+            print(s+"Created %s"%result.inserted_id)
+
+
+
+if __name__=="__main__":
+    upload_dividend_mongoDB()
+
+def comment_func():
+    symbol_dict = {}
+    for s in symbol_list:
+        symbol_dict[s] = symbol_statics_parser(s[1:]+".HK")
+        print(symbol_dict[s])
+
+    with open("symbol.json","w") as f:
+        json.dump(symbol_dict,f)
